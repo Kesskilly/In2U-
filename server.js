@@ -1577,7 +1577,15 @@ function messageShape(
     createdAt:
       row.created_at,
 
-    reactions: []
+    reactions: db
+  .prepare(
+    `SELECT emoji
+     FROM message_reactions
+     WHERE message_id=?
+     ORDER BY id ASC`
+  )
+  .all(row.id)
+  .map(x => x.emoji)
   };
 }
 
