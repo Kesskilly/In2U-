@@ -369,7 +369,52 @@ function closeReactionPeople(){document.getElementById('reactionPeopleModal').cl
 async function togglePrivacy(key){const next=!data.profile[key];try{const r=await api('/api/me',{method:'PATCH',body:JSON.stringify({[key]:next})});applyUser(r.user);renderDashboard();showToast(next?'Setting enabled':'Setting disabled')}catch(err){showToast(err.message)}}
 function openPeopleList(user,type,own){const isMe=String(user)===data.profile.name;const visible=own||isMe||!data.profile.isPrivate?(type==='followers'?true:data.profile.showFollowing):false;if(!visible){showToast('This following list is private');return}window.peopleUser=String(user);window.peopleType=type;document.getElementById('peopleTitle').textContent=type==='followers'?'Followers':'Following';document.getElementById('peopleSubtitle').textContent=isMe?`People ${type==='followers'?'following you':'you follow'}`:`${user}'s ${type}`;document.getElementById('followersTab').classList.toggle('active',type==='followers');document.getElementById('followingTab').classList.toggle('active',type==='following');renderPeopleList();document.getElementById('peopleModal').classList.add('show')}function switchPeopleTab(type){if(!window.peopleUser)return;const isMe=window.peopleUser===data.profile.name;if(type==='following'&&!isMe&&!data.profile.showFollowing){showToast('Following list is private');return}window.peopleType=type;document.getElementById('followersTab').classList.toggle('active',type==='followers');document.getElementById('followingTab').classList.toggle('active',type==='following');renderPeopleList()}function renderPeopleList(){const user=window.peopleUser||data.profile.name;const isMe=user===data.profile.name;let arr;if(isMe){arr=typeArr(window.peopleType)}else{arr=window.peopleType==='followers'?['Derek','Maya','Alex']:['Jordan','Nia','Maya']}document.getElementById('peopleList').innerHTML=arr.length?`<div class="people-grid">${arr.map(n=>`<div class="person-card" onclick="openPublicProfile('${esc(n)}');closePeopleList()">${avatar(n,n===data.profile.name?data.profile.photo:'')}<div><b>${esc(n)}</b><div class="handle">@${n.toLowerCase().replace(/[^a-z0-9]+/g,'')}</div></div></div>`).join('')}</div>`:'<div class="empty">No people to show yet.</div>'}function typeArr(type){return type==='followers'?data.profile.followers:data.profile.following}function closePeopleList(){document.getElementById('peopleModal').classList.remove('show')}
 function openPublicProfile(name){const user=String(name);const isMe=user===data.profile.name;const posts=data.posts.filter(p=>p.user===user);const handle=isMe?data.profile.handle:'@'+user.toLowerCase().replace(/[^a-z0-9]+/g,'');const photo=isMe?data.profile.photo:'';const followers=isMe?data.profile.followers:['Derek','Maya','Alex'];const following=isMe?data.profile.following:['Jordan','Nia'];document.getElementById('publicAvatar').innerHTML=photo?`<img src="${esc(photo)}">`:esc(user[0]||'?');document.getElementById('publicName').textContent=user;document.getElementById('publicHandle').textContent=handle;document.getElementById('publicBio').textContent=isMe?data.profile.bio:'Sharing moments and connecting on In2U.';document.getElementById('publicPostCount').textContent=posts.length;document.getElementById('publicFollowers').textContent=followers.length;document.getElementById('publicFollowing').textContent=following.length;const privateNotice=document.getElementById('publicPrivateNotice');privateNotice.classList.toggle('hidden',isMe||!data.profile.isPrivate);document.getElementById('followPublicBtn').classList.toggle('hidden',isMe);document.getElementById('publicFollowersStat').classList.toggle('hidden',!isMe && data.profile.isPrivate && !data.profile.showFollowers);document.getElementById('publicFollowingStat').classList.toggle('hidden',!isMe && data.profile.isPrivate && !data.profile.showFollowing);document.getElementById('publicPosts').innerHTML=(isMe||!data.profile.isPrivate)?posts.map(postHTML).join('')||'<div class="empty">No public posts yet.</div>':'<div class="empty">🔒 This account is private. Follow to see their posts.</div>';showScreen('publicProfile')}
-async function toggleFollowPublic(){const name=document.getElementById('publicName').textContent;try{const u=await api('/api/users/'+encodeURIComponent(name.replace(/^@/,'')));const r=await api('/api/users/'+u.user.id+'/follow',{method:'POST'});const b=document.getElementById('followPublicBtn');b.textContent=r.status==='pending'?'Requested ✓':'Following ✓';showToast(r.status==='pending'?'Follow request sent':'Following '+name+' ✓')}catch(err){showToast(err.message)}}
+async function toggleFollowPublic(){
+  const name = document.getElementById('publicName')?.textContent?.trim() || '';
+
+  try {
+    const r = await api(
+      '/api/users/search?q=' + encodeURIComponent(name)
+    );
+
+    const users = r.users || [];
+
+    const u =
+      users.find(
+        x => String(x.name || '').toLowerCase() === name.toLowerCase()
+      ) ||
+      users[0];
+
+    if (!u) {
+      throw new Error('User not found');
+    }
+
+    const result = await api(
+      '/api/users/' + u.id + '/follow',
+      {
+        method: 'POST'
+      }
+    );
+
+    const button = document.getElementById('followPublicBtn');
+
+    if (button) {
+      button.textContent =
+        result.status === 'pending'
+          ? 'Requested ✓'
+          : 'Following ✓';
+    }
+
+    showToast(
+      result.status === 'pending'
+        ? 'Follow request sent'
+        : 'Following ' + name + ' ✓'
+    );
+
+  } catch (err) {
+    showToast(err.message || 'Could not follow user');
+  }
+  }
 function openPublicMessage(){if(data.profile.allowMessages)showScreen('messages');else showToast('This person is not accepting messages')}
 function openComments(id){currentCommentPost=id;const p=data.posts.find(x=>x.id===id);document.getElementById('commentsList').innerHTML=commentsHTML(p);document.getElementById('commentsModal').classList.add('show');setTimeout(()=>document.getElementById('commentInput').focus(),100)}
 function closeComments(){document.getElementById('commentsModal').classList.remove('show');replyTarget=null}
